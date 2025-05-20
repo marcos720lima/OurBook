@@ -6,7 +6,16 @@ const solicitacoesRoutes = require('./routes/solicitacoes');
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:8081', // desenvolvimento web local
+  'https://ourbook-j73l.onrender.com', // backend render
+  // Adicione aqui o domínio do frontend em produção, se houver
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use(express.json());
 
 // Rota raiz
