@@ -75,7 +75,7 @@ router.post('/', auth, async (req, res) => {
   console.log('Body:', req.body);
   console.log('Usuário autenticado:', req.usuario);
   
-  const { titulo, autor, estado_livro, genero, fotos } = req.body;
+  const { titulo, autor, estado_livro, genero, fotos, status } = req.body;
   
   // Validação básica
   if (!titulo || !autor || !estado_livro || !genero) {
@@ -90,7 +90,8 @@ router.post('/', auth, async (req, res) => {
       estado_livro,
       genero,
       fotos: fotos || [],
-      usuario_id: req.usuario.id // ID do usuário autenticado
+      usuario_id: req.usuario.id,
+      status: status || 'disponivel'
     };
     
     console.log('Dados do livro a serem salvos:', livroData);
@@ -108,7 +109,7 @@ router.post('/', auth, async (req, res) => {
 // Rota para atualizar um livro (protegida por autenticação)
 router.put('/:id', auth, async (req, res) => {
   const livroId = req.params.id;
-  const { titulo, autor, estado_livro, genero, fotos, disponivel } = req.body;
+  const { titulo, autor, estado_livro, genero, fotos, disponivel, status } = req.body;
   
   try {
     // Verificar se o livro pertence ao usuário
@@ -125,7 +126,8 @@ router.put('/:id', auth, async (req, res) => {
       estado_livro: estado_livro || livroExistente.estado_livro,
       genero: genero || livroExistente.genero,
       fotos: fotos || livroExistente.fotos,
-      disponivel: disponivel !== undefined ? disponivel : livroExistente.disponivel
+      disponivel: disponivel !== undefined ? disponivel : livroExistente.disponivel,
+      status: status || livroExistente.status
     };
     
     const livroAtualizado = await livrosModel.updateLivro(livroId, livroData);

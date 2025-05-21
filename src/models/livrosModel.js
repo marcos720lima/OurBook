@@ -94,17 +94,17 @@ const livrosModel = {
 
   // Adicionar um novo livro
   addLivro: async (livroData) => {
-    const { titulo, autor, estado_livro, genero, fotos, usuario_id } = livroData;
+    const { titulo, autor, estado_livro, genero, fotos, usuario_id, status = 'disponivel' } = livroData;
     
     try {
       // Converter as imagens base64 para Buffer antes de salvar
       const fotosBuffer = fotos.map(foto => Buffer.from(foto, 'base64'));
       
       const result = await pool.query(`
-        INSERT INTO livros (titulo, autor, estado_livro, genero, fotos, usuario_id)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO livros (titulo, autor, estado_livro, genero, fotos, usuario_id, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
-      `, [titulo, autor, estado_livro, genero, fotosBuffer, usuario_id]);
+      `, [titulo, autor, estado_livro, genero, fotosBuffer, usuario_id, status]);
       
       return result.rows[0];
     } catch (error) {
@@ -114,7 +114,7 @@ const livrosModel = {
 
   // Atualizar um livro existente
   updateLivro: async (id, livroData) => {
-    const { titulo, autor, estado_livro, genero, fotos, disponivel } = livroData;
+    const { titulo, autor, estado_livro, genero, fotos, disponivel, status } = livroData;
     
     try {
       const result = await pool.query(`
@@ -125,10 +125,11 @@ const livrosModel = {
           estado_livro = $3,
           genero = $4,
           fotos = $5,
-          disponivel = $6
-        WHERE id = $7
+          disponivel = $6,
+          status = $7
+        WHERE id = $8
         RETURNING *
-      `, [titulo, autor, estado_livro, genero, fotos, disponivel, id]);
+      `, [titulo, autor, estado_livro, genero, fotos, disponivel, status, id]);
       
       return result.rows[0];
     } catch (error) {

@@ -30,7 +30,7 @@ const auth = async (req, res, next) => {
         // const decoded = jwt.verify(token, process.env.JWT_SECRET);
         // userId = decoded.id;
         
-        // Como não temos JWT implementado ainda, vamos extrair o ID do token temporário
+        // é extraido o ID do token temporário
         if (token.startsWith('user_')) {
           userId = Number(token.split('_')[1]);
           console.log('ID do usuário extraído:', userId);
@@ -51,7 +51,7 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'Formato de token inválido' });
     }
     
-    // Verificar se o usuário existe no banco de dados
+    // vê se o usuário existe no banco de dados
     console.log('Buscando usuário no banco de dados:', userId);
     const result = await pool.query('SELECT * FROM usuarios WHERE id = $1', [userId]);
     
@@ -60,11 +60,10 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'Usuário não encontrado' });
     }
     
-    // Adicionar o usuário ao objeto de requisição
     req.usuario = result.rows[0];
     console.log('Usuário autenticado:', req.usuario);
     
-    // Continuar para o próximo middleware ou rota
+  
     next();
   } catch (error) {
     console.error('Erro no middleware de autenticação:', error);

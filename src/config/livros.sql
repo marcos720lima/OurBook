@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS livros (
     fotos BYTEA[],
     usuario_id INTEGER NOT NULL,
     disponivel BOOLEAN DEFAULT true,
+    status VARCHAR(20) DEFAULT 'disponivel',
     data_cadastro TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT livros_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
