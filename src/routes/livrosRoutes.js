@@ -38,17 +38,12 @@ router.get('/usuario/:id', async (req, res) => {
 
 // Rota para pesquisar livros
 router.get('/search', async (req, res) => {
-  const { q } = req.query;
-  if (!q) {
-    return res.status(400).json({ message: 'Termo de pesquisa não fornecido' });
-  }
-
+  const { q, estado, cidade } = req.query;
   try {
-    const livros = await livrosModel.searchLivros(q);
+    const livros = await livrosModel.searchLivrosAvancado(q, estado, cidade);
     res.json(livros);
   } catch (error) {
-    console.error('Erro ao pesquisar livros:', error);
-    res.status(500).json({ message: 'Erro ao pesquisar livros' });
+    res.status(500).json({ message: 'Erro ao buscar livros', detalhes: error.message });
   }
 });
 

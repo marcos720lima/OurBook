@@ -202,6 +202,40 @@ const livrosModel = {
     } catch (error) {
       throw error;
     }
+  },
+
+  searchLivrosAvancado: async (q, estado, cidade) => {
+    let query = `
+      SELECT l.*, u.nome as usuario_nome, u.usuario as usuario_username, u.estado, u.cidade
+      FROM livros l
+      JOIN usuarios u ON l.usuario_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let idx = 1;
+
+    if (q) {
+      query += ` AND (l.titulo ILIKE $${idx} OR l.autor ILIKE $${idx} OR u.nome ILIKE $${idx} OR u.usuario ILIKE $${idx})`;
+      params.push(`%${q}%`);
+      idx++;
+    }
+    if (estado) {
+      query += ` AND u.estado ILIKE $${idx}`;
+      params.push(`%${estado}%`);
+      idx++;
+    }
+    if (cidade) {
+      query += ` AND u.cidade ILIKE $${idx}`;
+      params.push(`%${cidade}%`);
+      idx++;
+    }
+    query += ` ORDER BY l.data_cadastro DESC`;
+
+    const result = await pool.query(query, params);
+    return result.rows.map(livro => ({
+      ...livro,
+      fotos: livro.fotos ? livro.fotos.map(foto => foto ? foto.toString('base64') : null) : []
+    }));
   }
 };
 
