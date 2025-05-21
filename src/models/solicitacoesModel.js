@@ -18,6 +18,14 @@ const SolicitacoesModel = {
     return rows;
   },
 
+  async listarPorSolicitante(solicitante_id) {
+    const { rows } = await db.query(
+      `SELECT * FROM solicitacoes WHERE solicitante_id = $1 ORDER BY criada_em DESC`,
+      [solicitante_id]
+    );
+    return rows;
+  },
+
   async atualizarStatus(id, status) {
     const { rows } = await db.query(
       `UPDATE solicitacoes SET status = $1, atualizada_em = NOW() WHERE id = $2 RETURNING *`,

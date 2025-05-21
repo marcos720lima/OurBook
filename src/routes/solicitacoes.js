@@ -17,4 +17,7 @@ router.get('/:id', solicitacoesController.buscarPorId);
 // Excluir solicitação
 router.delete('/:id', solicitacoesController.excluir);
 
+// Listar solicitações feitas por solicitante
+router.get('/solicitante/:solicitante_id', solicitacoesController.listarPorSolicitante);
+
 module.exports = router; 

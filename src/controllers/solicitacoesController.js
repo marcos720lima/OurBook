@@ -83,6 +83,16 @@ const solicitacoesController = {
       res.status(500).json({ erro: 'Erro ao excluir solicitação', detalhes: error.message });
     }
   },
+
+  async listarPorSolicitante(req, res) {
+    try {
+      const { solicitante_id } = req.params;
+      const solicitacoes = await SolicitacoesModel.listarPorSolicitante(solicitante_id);
+      res.json(solicitacoes);
+    } catch (error) {
+      res.status(500).json({ erro: 'Erro ao listar solicitações', detalhes: error.message });
+    }
+  },
 };
 
 module.exports = solicitacoesController; 
