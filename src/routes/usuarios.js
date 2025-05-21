@@ -121,4 +121,21 @@ router.put("/:id", async (req, res) => {
 router.get('/:usuario_id/preferencias', preferenciasController.buscar);
 router.put('/:usuario_id/preferencias', preferenciasController.atualizar);
 
+// Buscar usuários por nome ou username
+router.get('/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    return res.json([]);
+  }
+  try {
+    const result = await pool.query(
+      `SELECT id, nome, usuario, foto FROM usuarios WHERE nome ILIKE $1 OR usuario ILIKE $1`,
+      [`%${q}%`]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao buscar usuários', detalhes: err.message });
+  }
+});
+
 module.exports = router;
