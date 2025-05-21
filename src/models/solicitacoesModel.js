@@ -12,7 +12,17 @@ const SolicitacoesModel = {
 
   async listarPorDestinatario(destinatario_id) {
     const { rows } = await db.query(
-      `SELECT * FROM solicitacoes WHERE destinatario_id = $1 ORDER BY criada_em DESC`,
+      `SELECT 
+        s.*, 
+        l.titulo AS livro_titulo, 
+        l.fotos AS livro_fotos, 
+        u.nome AS solicitante_nome, 
+        u.foto AS solicitante_foto
+      FROM solicitacoes s
+      JOIN livros l ON l.id = s.livro_id
+      JOIN usuarios u ON u.id = s.solicitante_id
+      WHERE s.destinatario_id = $1
+      ORDER BY s.criada_em DESC`,
       [destinatario_id]
     );
     return rows;
@@ -20,7 +30,17 @@ const SolicitacoesModel = {
 
   async listarPorSolicitante(solicitante_id) {
     const { rows } = await db.query(
-      `SELECT * FROM solicitacoes WHERE solicitante_id = $1 ORDER BY criada_em DESC`,
+      `SELECT 
+        s.*, 
+        l.titulo AS livro_titulo, 
+        l.fotos AS livro_fotos, 
+        u.nome AS destinatario_nome, 
+        u.foto AS destinatario_foto
+      FROM solicitacoes s
+      JOIN livros l ON l.id = s.livro_id
+      JOIN usuarios u ON u.id = s.destinatario_id
+      WHERE s.solicitante_id = $1
+      ORDER BY s.criada_em DESC`,
       [solicitante_id]
     );
     return rows;
