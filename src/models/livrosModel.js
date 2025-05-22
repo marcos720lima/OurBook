@@ -115,8 +115,9 @@ const livrosModel = {
   // Atualizar um livro existente
   updateLivro: async (id, livroData) => {
     const { titulo, autor, estado_livro, genero, fotos, disponivel, status } = livroData;
-    
     try {
+      // Converter as imagens base64 para Buffer antes de salvar
+      const fotosBuffer = fotos ? fotos.map(foto => Buffer.from(foto, 'base64')) : [];
       const result = await pool.query(`
         UPDATE livros
         SET 
@@ -129,8 +130,7 @@ const livrosModel = {
           status = $7
         WHERE id = $8
         RETURNING *
-      `, [titulo, autor, estado_livro, genero, fotos, disponivel, status, id]);
-      
+      `, [titulo, autor, estado_livro, genero, fotosBuffer, disponivel, status, id]);
       return result.rows[0];
     } catch (error) {
       throw error;
