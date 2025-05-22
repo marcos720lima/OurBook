@@ -25,7 +25,11 @@ const SolicitacoesModel = {
       ORDER BY s.criada_em DESC`,
       [destinatario_id]
     );
-    return rows;
+    // Converter fotos para base64
+    return rows.map(row => ({
+      ...row,
+      livro_fotos: row.livro_fotos ? row.livro_fotos.map(foto => foto ? foto.toString('base64') : null) : []
+    }));
   },
 
   async listarPorSolicitante(solicitante_id) {
@@ -43,7 +47,11 @@ const SolicitacoesModel = {
       ORDER BY s.criada_em DESC`,
       [solicitante_id]
     );
-    return rows;
+    // Converter fotos para base64
+    return rows.map(row => ({
+      ...row,
+      livro_fotos: row.livro_fotos ? row.livro_fotos.map(foto => foto ? foto.toString('base64') : null) : []
+    }));
   },
 
   async atualizarStatus(id, status) {
