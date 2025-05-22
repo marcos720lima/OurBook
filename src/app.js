@@ -3,6 +3,7 @@ const cors = require("cors");
 const usuariosRoutes = require("./routes/usuarios");
 const livrosRoutes = require("./routes/livrosRoutes");
 const solicitacoesRoutes = require('./routes/solicitacoes');
+const segurancaRoutes = require('./routes/segurancaRoutes');
 
 const app = express();
 
@@ -26,5 +27,6 @@ app.get("/", (req, res) => {
 app.use("/usuarios", usuariosRoutes);
 app.use("/livros", livrosRoutes);
 app.use('/solicitacoes', solicitacoesRoutes);
+app.use('/seguranca', segurancaRoutes);
 
 module.exports = app;
