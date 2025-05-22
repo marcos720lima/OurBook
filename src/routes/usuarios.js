@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const preferenciasController = require('../controllers/preferenciasController');
+const SessoesModel = require('../models/sessoesModel');
+const { v4: uuidv4 } = require('uuid');
 
 // 1. Registro de usuário
 router.post("/register", async (req, res) => {
@@ -47,11 +49,23 @@ router.post("/register", async (req, res) => {
 
 // 2. Login de usuário
 router.post("/login", async (req, res) => {
-  const { email, senha } = req.body;
+  const { email, senha, device_name, so } = req.body;
   try {
     const result = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
     if (result.rows.length > 0) {
-      res.status(200).json(result.rows[0]);
+      const usuario = result.rows[0];
+      // Gerar token de sessão (UUID)
+      const token = uuidv4();
+      // Registrar sessão
+      await SessoesModel.criar({
+        usuario_id: usuario.id,
+        token,
+        device_name: device_name || 'Desconhecido',
+        so: so || 'Desconhecido',
+        ip: req.ip
+      });
+      // Retornar usuário + token
+      res.status(200).json({ ...usuario, token });
     } else {
       res.status(401).json({ erro: "Email ou senha inválidos" });
     }

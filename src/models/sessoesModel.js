@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const pool = db;
 
 const SessoesModel = {
   async criar({ usuario_id, token, device_name, so, ip }) {
