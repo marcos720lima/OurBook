@@ -174,26 +174,40 @@ function formatarTelefoneParaInternacional(telefone) {
 // Enviar código 2FA por SMS
 router.post('/2fa/enviar-codigo', async (req, res) => {
   const { telefone, usuario_id } = req.body;
-  if (!telefone || !usuario_id) return res.status(400).json({ erro: 'Telefone e usuário obrigatórios' });
+  console.log('[2FA] Requisição para enviar código:', { telefone, usuario_id });
+  if (!telefone || !usuario_id) {
+    console.log('[2FA] Falta telefone ou usuario_id');
+    return res.status(400).json({ erro: 'Telefone e usuário obrigatórios' });
+  }
 
   // Gera código de 6 dígitos
   const codigo = Math.floor(100000 + Math.random() * 900000).toString();
   const expiracao = new Date(Date.now() + 5 * 60000); // 5 minutos
+  console.log('[2FA] Código gerado:', codigo, 'Expira em:', expiracao);
 
   // Salva no banco
-  await pool.query(
-    `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao) VALUES ($1, $2, $3, $4)`,
-    [usuario_id, codigo, telefone, expiracao]
-  );
+  try {
+    await pool.query(
+      `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao) VALUES ($1, $2, $3, $4)`,
+      [usuario_id, codigo, telefone, expiracao]
+    );
+    console.log('[2FA] Código salvo no banco');
+  } catch (e) {
+    console.error('[2FA] Erro ao salvar código no banco:', e);
+    return res.status(500).json({ erro: 'Erro ao salvar código no banco', detalhes: e.message });
+  }
 
   // Formata o telefone para internacional
   const telefoneFormatado = formatarTelefoneParaInternacional(telefone);
+  console.log('[2FA] Telefone formatado para internacional:', telefoneFormatado);
 
   // Envia SMS
   try {
     await enviarSMS(telefoneFormatado, `Seu código de verificação OurBook: ${codigo}`);
+    console.log('[2FA] SMS enviado com sucesso');
     res.json({ ok: true, mensagem: 'Código enviado' });
   } catch (e) {
+    console.error('[2FA] Erro ao enviar SMS:', e);
     res.status(500).json({ erro: 'Erro ao enviar SMS', detalhes: e.message });
   }
 });
@@ -224,10 +238,12 @@ router.post('/2fa/verificar', async (req, res) => {
 // Ativar 2FA
 router.post('/usuarios/:id/2fa/ativar', async (req, res) => {
   const { id } = req.params;
+  console.log('[2FA] Requisição para ativar 2FA do usuário:', id);
   try {
     // Buscar telefone do usuário
     const result = await pool.query('SELECT telefone FROM usuarios WHERE id = $1', [id]);
     if (result.rows.length === 0) {
+      console.log('[2FA] Usuário não encontrado:', id);
       return res.status(404).json({ erro: 'Usuário não encontrado' });
     }
     let telefone = result.rows[0].telefone;
@@ -237,11 +253,14 @@ router.post('/usuarios/:id/2fa/ativar', async (req, res) => {
     if (telefoneFormatado !== telefone) {
       await pool.query('UPDATE usuarios SET telefone = $1 WHERE id = $2', [telefoneFormatado, id]);
       telefone = telefoneFormatado;
+      console.log('[2FA] Telefone do usuário atualizado para internacional:', telefoneFormatado);
     }
     // Ativar 2FA
     await pool.query(`UPDATE usuarios SET two_factor_enabled = TRUE WHERE id = $1`, [id]);
+    console.log('[2FA] 2FA ativado para o usuário:', id);
     res.json({ ok: true, telefone: telefoneFormatado });
   } catch (err) {
+    console.error('[2FA] Erro ao ativar 2FA:', err);
     res.status(500).json({ erro: 'Erro ao ativar 2FA', detalhes: err.message });
   }
 });
