@@ -153,6 +153,24 @@ router.put("/:id", async (req, res) => {
 router.get('/:usuario_id/preferencias', preferenciasController.buscar);
 router.put('/:usuario_id/preferencias', preferenciasController.atualizar);
 
+// Função para formatar telefone para o formato internacional (Brasil)
+function formatarTelefoneParaInternacional(telefone) {
+  let numero = telefone.replace(/\D/g, '');
+  if (numero.startsWith('0')) {
+    numero = numero.substring(1);
+  }
+  if (numero.startsWith('55')) {
+    return '+' + numero;
+  }
+  if (numero.length === 11 || numero.length === 10) {
+    return '+55' + numero;
+  }
+  if (telefone.startsWith('+')) {
+    return telefone;
+  }
+  return telefone;
+}
+
 // Enviar código 2FA por SMS
 router.post('/2fa/enviar-codigo', async (req, res) => {
   const { telefone, usuario_id } = req.body;
@@ -168,9 +186,12 @@ router.post('/2fa/enviar-codigo', async (req, res) => {
     [usuario_id, codigo, telefone, expiracao]
   );
 
+  // Formata o telefone para internacional
+  const telefoneFormatado = formatarTelefoneParaInternacional(telefone);
+
   // Envia SMS
   try {
-    await enviarSMS(telefone, `Seu código de verificação OurBook: ${codigo}`);
+    await enviarSMS(telefoneFormatado, `Seu código de verificação OurBook: ${codigo}`);
     res.json({ ok: true, mensagem: 'Código enviado' });
   } catch (e) {
     res.status(500).json({ erro: 'Erro ao enviar SMS', detalhes: e.message });
