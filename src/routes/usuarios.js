@@ -294,4 +294,18 @@ router.post('/:id/dispositivos', async (req, res) => {
   }
 });
 
+// Remover um dispositivo do usuário
+router.delete('/:usuario_id/dispositivos/:dispositivo_id', async (req, res) => {
+  const { usuario_id, dispositivo_id } = req.params;
+  try {
+    await pool.query(
+      'DELETE FROM dispositivos_usuario WHERE id = $1 AND usuario_id = $2',
+      [dispositivo_id, usuario_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao remover dispositivo', detalhes: err.message });
+  }
+});
+
 module.exports = router;
