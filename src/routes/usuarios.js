@@ -235,4 +235,20 @@ router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Registrar novo dispositivo para o usuário
+router.post('/:id/dispositivos', async (req, res) => {
+  const { id } = req.params;
+  const { token, device_name, so, ip } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO dispositivos_usuario (usuario_id, token, device_name, so, ip, ativo, created_at, last_access)
+       VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW()) RETURNING *`,
+      [id, token, device_name, so, ip]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao registrar dispositivo', detalhes: err.message });
+  }
+});
+
 module.exports = router;
