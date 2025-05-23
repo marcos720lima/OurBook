@@ -63,14 +63,6 @@ router.post("/login", async (req, res) => {
       const usuario = result.rows[0];
       // Gerar token de sessão (UUID)
       const token = uuidv4();
-      // Registrar dispositivo
-      await DispositivosModel.criar({
-        usuario_id: usuario.id,
-        token,
-        device_name: device_name || 'Desconhecido',
-        so: so || 'Desconhecido',
-        ip: req.ip
-      });
       // Retornar usuário + token
       res.status(200).json({ ...usuario, token });
     } else {
