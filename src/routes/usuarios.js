@@ -236,7 +236,7 @@ router.post('/2fa/verificar', async (req, res) => {
 });
 
 // Ativar 2FA
-router.post('/usuarios/:id/2fa/ativar', async (req, res) => {
+router.post('/:id/2fa/ativar', async (req, res) => {
   const { id } = req.params;
   console.log('[2FA] Requisição para ativar 2FA do usuário:', id);
   try {
