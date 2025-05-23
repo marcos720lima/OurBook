@@ -6,6 +6,12 @@ const DispositivosModel = require('../models/sessoesModel');
 const { v4: uuidv4 } = require('uuid');
 const { enviarSMS } = require('../utils/sms');
 
+console.log('[ROTA] Rotas de usuários carregadas');
+router.use((req, res, next) => {
+  console.log('[ROTA] Nova requisição:', req.method, req.originalUrl);
+  next();
+});
+
 // 1. Registro de usuário
 router.post("/register", async (req, res) => {
   const { 
