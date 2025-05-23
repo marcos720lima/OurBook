@@ -213,12 +213,14 @@ router.post('/2fa/enviar-codigo', async (req, res) => {
 // Verificar código 2FA
 router.post('/2fa/verificar', async (req, res) => {
   const { usuario_id, codigo } = req.body;
+  console.log('[2FA][DEBUG] Tentando verificar código:', { usuario_id, codigo });
   if (!usuario_id || !codigo) return res.status(400).json({ erro: 'Dados obrigatórios' });
 
   const result = await pool.query(
     `SELECT * FROM codigos_verificacao WHERE usuario_id = $1 AND codigo = $2 AND expiracao > NOW() AND usado = FALSE`,
     [usuario_id, codigo]
   );
+  console.log('[2FA][DEBUG] Resultado da busca:', result.rows);
 
   if (result.rows.length === 0) {
     return res.status(400).json({ erro: 'Código inválido ou expirado' });
