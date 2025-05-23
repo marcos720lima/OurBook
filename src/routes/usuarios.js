@@ -61,9 +61,20 @@ router.post("/login", async (req, res) => {
     const result = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
     if (result.rows.length > 0) {
       const usuario = result.rows[0];
-      // Gerar token de sessão (UUID)
+
+      // Se o usuário tem 2FA ativado
+      if (usuario.two_factor_enabled) {
+        // Gera um token temporário (pode ser mais seguro se quiser)
+        return res.json({
+          two_factor_required: true,
+          temp_token: 'user_' + usuario.id,
+          telefone: usuario.telefone,
+          id: usuario.id
+        });
+      }
+
+      // Login normal
       const token = uuidv4();
-      // Retornar usuário + token
       res.status(200).json({ ...usuario, token });
     } else {
       res.status(401).json({ erro: "Email ou senha inválidos" });
