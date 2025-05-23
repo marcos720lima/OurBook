@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const preferenciasController = require('../controllers/preferenciasController');
-const SessoesModel = require('../models/sessoesModel');
+const DispositivosModel = require('../models/sessoesModel');
 const { v4: uuidv4 } = require('uuid');
+const { enviarSMS } = require('../utils/sms');
 
 // 1. Registro de usuário
 router.post("/register", async (req, res) => {
@@ -56,8 +57,8 @@ router.post("/login", async (req, res) => {
       const usuario = result.rows[0];
       // Gerar token de sessão (UUID)
       const token = uuidv4();
-      // Registrar sessão
-      await SessoesModel.criar({
+      // Registrar dispositivo
+      await DispositivosModel.criar({
         usuario_id: usuario.id,
         token,
         device_name: device_name || 'Desconhecido',
@@ -151,5 +152,66 @@ router.put("/:id", async (req, res) => {
 // Preferências do usuário
 router.get('/:usuario_id/preferencias', preferenciasController.buscar);
 router.put('/:usuario_id/preferencias', preferenciasController.atualizar);
+
+// Enviar código 2FA por SMS
+router.post('/2fa/enviar-codigo', async (req, res) => {
+  const { telefone, usuario_id } = req.body;
+  if (!telefone || !usuario_id) return res.status(400).json({ erro: 'Telefone e usuário obrigatórios' });
+
+  // Gera código de 6 dígitos
+  const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiracao = new Date(Date.now() + 5 * 60000); // 5 minutos
+
+  // Salva no banco
+  await pool.query(
+    `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao) VALUES ($1, $2, $3, $4)`,
+    [usuario_id, codigo, telefone, expiracao]
+  );
+
+  // Envia SMS
+  try {
+    await enviarSMS(telefone, `Seu código de verificação OurBook: ${codigo}`);
+    res.json({ ok: true, mensagem: 'Código enviado' });
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro ao enviar SMS', detalhes: e.message });
+  }
+});
+
+// Verificar código 2FA
+router.post('/2fa/verificar', async (req, res) => {
+  const { usuario_id, codigo } = req.body;
+  if (!usuario_id || !codigo) return res.status(400).json({ erro: 'Dados obrigatórios' });
+
+  const result = await pool.query(
+    `SELECT * FROM codigos_verificacao WHERE usuario_id = $1 AND codigo = $2 AND expiracao > NOW() AND usado = FALSE`,
+    [usuario_id, codigo]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(400).json({ erro: 'Código inválido ou expirado' });
+  }
+
+  // Marca como usado
+  await pool.query(
+    `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
+    [result.rows[0].id]
+  );
+
+  res.json({ ok: true, mensagem: 'Código verificado com sucesso' });
+});
+
+// Ativar 2FA
+router.post('/usuarios/:id/2fa/ativar', async (req, res) => {
+  const { id } = req.params;
+  await pool.query(`UPDATE usuarios SET two_factor_enabled = TRUE WHERE id = $1`, [id]);
+  res.json({ ok: true });
+});
+
+// Desativar 2FA
+router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
+  const { id } = req.params;
+  await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1`, [id]);
+  res.json({ ok: true });
+});
 
 module.exports = router;
