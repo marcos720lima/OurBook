@@ -224,8 +224,26 @@ router.post('/2fa/verificar', async (req, res) => {
 // Ativar 2FA
 router.post('/usuarios/:id/2fa/ativar', async (req, res) => {
   const { id } = req.params;
-  await pool.query(`UPDATE usuarios SET two_factor_enabled = TRUE WHERE id = $1`, [id]);
-  res.json({ ok: true });
+  try {
+    // Buscar telefone do usuário
+    const result = await pool.query('SELECT telefone FROM usuarios WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+    }
+    let telefone = result.rows[0].telefone;
+    // Formatar telefone para internacional
+    const telefoneFormatado = formatarTelefoneParaInternacional(telefone);
+    // Se o telefone salvo for diferente do formatado, atualize no banco
+    if (telefoneFormatado !== telefone) {
+      await pool.query('UPDATE usuarios SET telefone = $1 WHERE id = $2', [telefoneFormatado, id]);
+      telefone = telefoneFormatado;
+    }
+    // Ativar 2FA
+    await pool.query(`UPDATE usuarios SET two_factor_enabled = TRUE WHERE id = $1`, [id]);
+    res.json({ ok: true, telefone: telefoneFormatado });
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao ativar 2FA', detalhes: err.message });
+  }
 });
 
 // Desativar 2FA
