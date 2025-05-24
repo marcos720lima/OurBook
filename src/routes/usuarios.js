@@ -5,7 +5,6 @@ const preferenciasController = require('../controllers/preferenciasController');
 const DispositivosModel = require('../models/sessoesModel');
 const { v4: uuidv4 } = require('uuid');
 const { enviarSMS } = require('../utils/sms');
-const bcrypt = require('bcrypt');
 
 console.log('[ROTA] Rotas de usuários carregadas');
 router.use((req, res, next) => {
@@ -29,7 +28,6 @@ router.post("/register", async (req, res) => {
   } = req.body;
 
   try {
-    const hashedPassword = await bcrypt.hash(senha, 10);
     const novoUsuario = await pool.query(
       `INSERT INTO usuarios (
         nome, 
@@ -43,7 +41,7 @@ router.post("/register", async (req, res) => {
         generos,
         foto
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [nome, usuario, email, hashedPassword, telefone, estado, cidade, mostrar_localizacao, generos, foto]
+      [nome, usuario, email, senha, telefone, estado, cidade, mostrar_localizacao, generos, foto]
     );
     res.status(201).json(novoUsuario.rows[0]);
   } catch (err) {
@@ -60,15 +58,13 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { email, senha, device_name, so } = req.body;
   try {
-    const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+    const result = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
     if (result.rows.length > 0) {
       const usuario = result.rows[0];
-      const match = await bcrypt.compare(senha, usuario.senha);
-      if (!match) {
-        return res.status(401).json({ erro: "Email ou senha inválidos" });
-      }
+
       // Se o usuário tem 2FA ativado
       if (usuario.two_factor_enabled) {
+        // Gera um token temporário (pode ser mais seguro se quiser)
         return res.json({
           two_factor_required: true,
           temp_token: 'user_' + usuario.id,
@@ -76,6 +72,8 @@ router.post("/login", async (req, res) => {
           id: usuario.id
         });
       }
+
+      // Login normal
       const token = uuidv4();
       res.status(200).json({ ...usuario, token });
     } else {
@@ -313,55 +311,6 @@ router.delete('/:usuario_id/dispositivos/:dispositivo_id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ erro: 'Erro ao remover dispositivo', detalhes: err.message });
   }
-});
-
-// Alterar senha (com hash)
-router.put('/usuarios/:id/alterar-senha', async (req, res) => {
-  const { id } = req.params;
-  const { senha } = req.body;
-  try {
-    const hashedPassword = await bcrypt.hash(senha, 10);
-    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hashedPassword, id]);
-    res.json({ success: true, mensagem: 'Senha alterada com sucesso!' });
-  } catch (err) {
-    res.status(500).json({ erro: 'Erro ao alterar senha', detalhes: err.message });
-  }
-});
-
-// Enviar código para alteração de senha
-router.post('/usuarios/enviar-codigo-alterar-senha', async (req, res) => {
-  const { usuario_id, telefone } = req.body;
-  if (!usuario_id || !telefone) return res.status(400).json({ erro: 'Dados obrigatórios' });
-  const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiracao = new Date(Date.now() + 5 * 60000); // 5 minutos
-  try {
-    await pool.query(
-      `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao, tipo) VALUES ($1, $2, $3, $4, $5)`,
-      [usuario_id, codigo, telefone, expiracao, 'senha']
-    );
-    await enviarSMS(telefone, `Seu código para alterar a senha: ${codigo}`);
-    res.json({ ok: true, mensagem: 'Código enviado' });
-  } catch (e) {
-    res.status(500).json({ erro: 'Erro ao enviar código', detalhes: e.message });
-  }
-});
-
-// Verificar código para alteração de senha
-router.post('/usuarios/verificar-codigo-alterar-senha', async (req, res) => {
-  const { usuario_id, codigo } = req.body;
-  if (!usuario_id || !codigo) return res.status(400).json({ erro: 'Dados obrigatórios' });
-  const result = await pool.query(
-    `SELECT * FROM codigos_verificacao WHERE usuario_id = $1 AND codigo = $2 AND expiracao > NOW() AND usado = FALSE AND tipo = 'senha'`,
-    [usuario_id, codigo]
-  );
-  if (result.rows.length === 0) {
-    return res.status(400).json({ success: false, erro: 'Código inválido ou expirado' });
-  }
-  await pool.query(
-    `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
-    [result.rows[0].id]
-  );
-  res.json({ success: true, mensagem: 'Código verificado com sucesso' });
 });
 
 module.exports = router;
