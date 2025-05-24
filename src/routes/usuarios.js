@@ -5,7 +5,6 @@ const preferenciasController = require('../controllers/preferenciasController');
 const DispositivosModel = require('../models/sessoesModel');
 const { v4: uuidv4 } = require('uuid');
 const { enviarSMS } = require('../utils/sms');
-const bcrypt = require('bcrypt');
 
 console.log('[ROTA] Rotas de usuários carregadas');
 router.use((req, res, next) => {
@@ -366,8 +365,7 @@ router.put('/:id/alterar-senha', async (req, res) => {
   if (!senha) return res.status(400).json({ erro: 'Senha obrigatória' });
 
   try {
-    const hash = await bcrypt.hash(senha, 10);
-    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hash, id]);
+    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [senha, id]);
     res.json({ ok: true, mensagem: 'Senha alterada com sucesso' });
   } catch (e) {
     res.status(500).json({ erro: 'Erro ao alterar senha', detalhes: e.message });
