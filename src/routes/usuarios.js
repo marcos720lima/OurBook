@@ -372,4 +372,22 @@ router.put('/:id/alterar-senha', async (req, res) => {
   }
 });
 
+// Histórico de acessos do usuário
+router.get('/:id/historico-acessos', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT data_hora, device_name, so, ip, localizacao
+       FROM historico_acessos
+       WHERE usuario_id = $1
+       ORDER BY data_hora DESC
+       LIMIT 20`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro ao buscar histórico de acessos', detalhes: e.message });
+  }
+});
+
 module.exports = router;
