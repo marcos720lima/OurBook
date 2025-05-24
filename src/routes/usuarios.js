@@ -5,6 +5,7 @@ const preferenciasController = require('../controllers/preferenciasController');
 const DispositivosModel = require('../models/sessoesModel');
 const { v4: uuidv4 } = require('uuid');
 const { enviarSMS } = require('../utils/sms');
+const bcrypt = require('bcrypt');
 
 console.log('[ROTA] Rotas de usuários carregadas');
 router.use((req, res, next) => {
@@ -310,6 +311,66 @@ router.delete('/:usuario_id/dispositivos/:dispositivo_id', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: 'Erro ao remover dispositivo', detalhes: err.message });
+  }
+});
+
+// Enviar código para alteração de senha
+router.post('/enviar-codigo-alterar-senha', async (req, res) => {
+  const { usuario_id, telefone } = req.body;
+  if (!usuario_id || !telefone) return res.status(400).json({ erro: 'Dados obrigatórios' });
+
+  const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiracao = new Date(Date.now() + 5 * 60000); // 5 minutos
+
+  try {
+    await pool.query(
+      `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao, tipo, usado)
+       VALUES ($1, $2, $3, $4, $5, FALSE)`,
+      [usuario_id, codigo, telefone, expiracao, 'senha']
+    );
+    // Envie o SMS com Twilio aqui
+    await enviarSMS(telefone, `Seu código para alterar a senha: ${codigo}`);
+    res.json({ ok: true, mensagem: 'Código enviado' });
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro ao enviar código', detalhes: e.message });
+  }
+});
+
+// Verificar código para alteração de senha
+router.post('/verificar-codigo-alterar-senha', async (req, res) => {
+  const { usuario_id, codigo } = req.body;
+  if (!usuario_id || !codigo) return res.status(400).json({ erro: 'Dados obrigatórios' });
+
+  const result = await pool.query(
+    `SELECT * FROM codigos_verificacao
+     WHERE usuario_id = $1 AND codigo = $2 AND tipo = $3 AND expiracao > NOW() AND usado = FALSE`,
+    [usuario_id, codigo, 'senha']
+  );
+
+  if (result.rows.length === 0) {
+    return res.json({ success: false });
+  }
+
+  await pool.query(
+    `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
+    [result.rows[0].id]
+  );
+
+  res.json({ success: true });
+});
+
+// Alterar senha
+router.put('/:id/alterar-senha', async (req, res) => {
+  const { id } = req.params;
+  const { senha } = req.body;
+  if (!senha) return res.status(400).json({ erro: 'Senha obrigatória' });
+
+  try {
+    const hash = await bcrypt.hash(senha, 10);
+    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hash, id]);
+    res.json({ ok: true, mensagem: 'Senha alterada com sucesso' });
+  } catch (e) {
+    res.status(500).json({ erro: 'Erro ao alterar senha', detalhes: e.message });
   }
 });
 
