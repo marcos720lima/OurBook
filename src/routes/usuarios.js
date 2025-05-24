@@ -56,11 +56,22 @@ router.post("/register", async (req, res) => {
 
 // 2. Login de usuário
 router.post("/login", async (req, res) => {
-  const { email, senha, device_name, so } = req.body;
+  const { email, senha, device_name, so, ip } = req.body;
   try {
     const result = await pool.query("SELECT * FROM usuarios WHERE email = $1 AND senha = $2", [email, senha]);
     if (result.rows.length > 0) {
       const usuario = result.rows[0];
+
+      // Registrar acesso no histórico
+      try {
+        await pool.query(
+          `INSERT INTO historico_acessos (usuario_id, data_hora, device_name, so, ip)
+           VALUES ($1, NOW(), $2, $3, $4)`,
+          [usuario.id, device_name || null, so || null, ip || null]
+        );
+      } catch (e) {
+        console.error('Erro ao registrar histórico de acesso:', e);
+      }
 
       // Se o usuário tem 2FA ativado
       if (usuario.two_factor_enabled) {
