@@ -69,8 +69,15 @@ router.post("/login", async (req, res) => {
            VALUES ($1, NOW(), $2, $3, $4)`,
           [usuario.id, device_name || null, so || null, ip || null]
         );
+        // Registrar dispositivo conectado
+        await pool.query(
+          `INSERT INTO dispositivos_usuario (usuario_id, token, device_name, so, ip, ativo, created_at, last_access)
+           VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
+           ON CONFLICT (usuario_id, device_name, so, ip) DO UPDATE SET ativo = TRUE, last_access = NOW()`,
+          [usuario.id, 'user_' + usuario.id, device_name || null, so || null, ip || null]
+        );
       } catch (e) {
-        console.error('Erro ao registrar histórico de acesso:', e);
+        console.error('Erro ao registrar histórico de acesso/dispositivo:', e);
       }
 
       // Se o usuário tem 2FA ativado
