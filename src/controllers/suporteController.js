@@ -1,16 +1,17 @@
 const sgMail = require('@sendgrid/mail');
 const db = require('../config/db');
 
-// Configuração do SendGrid com a API key
 if (process.env.SENDGRID_API_KEY) {
+  console.log('Configurando SendGrid com API key:', process.env.SENDGRID_API_KEY.substring(0, 10) + '...');
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
   console.warn('SENDGRID_API_KEY não configurada. O envio de emails não funcionará.');
 }
 
-// Email de origem e destino
 const EMAIL_FROM = process.env.EMAIL_FROM; 
 const EMAIL_TO = process.env.EMAIL_TO;
+
+console.log('Emails configurados - FROM:', EMAIL_FROM, 'TO:', EMAIL_TO);
 
 const suporteController = {
   async enviarMensagem(req, res) {
@@ -21,7 +22,6 @@ const suporteController = {
         return res.status(400).json({ erro: 'Assunto e mensagem são obrigatórios' });
       }
       
-      // Buscar dados do usuário para incluir no email
       const { rows } = await db.query('SELECT nome, email, usuario FROM usuarios WHERE id = $1', [usuario_id]);
       
       if (rows.length === 0) {
@@ -30,7 +30,6 @@ const suporteController = {
       
       const usuario = rows[0];
       
-      // Registrar a mensagem no banco de dados
       const mensagemResult = await db.query(
         `INSERT INTO mensagens_suporte (usuario_id, assunto, mensagem, status, criada_em)
          VALUES ($1, $2, $3, 'pendente', NOW())
@@ -40,7 +39,6 @@ const suporteController = {
       
       const mensagemId = mensagemResult.rows[0].id;
       
-      // Configurar o email
       const mailOptions = {
         from: EMAIL_FROM,
         to: EMAIL_TO,
@@ -78,11 +76,9 @@ ${mensagem}
         `
       };
       
-      // Em ambiente de desenvolvimento, apenas simular o envio
       if (process.env.NODE_ENV === 'development') {
         console.log('Email simulado:', mailOptions);
         
-        // Atualizar status da mensagem
         await db.query(
           'UPDATE mensagens_suporte SET status = $1 WHERE id = $2',
           ['enviada', mensagemId]
@@ -94,13 +90,12 @@ ${mensagem}
         });
       }
       
-      // Enviar o email usando SendGrid
       try {
-        // Verificar se o SendGrid está configurado
+        console.log('Tentando enviar email com SendGrid...');
+        
         if (!process.env.SENDGRID_API_KEY) {
           console.log('SendGrid não configurado. Simulando envio de email:', mailOptions);
           
-          // Atualizar status da mensagem
           await db.query(
             'UPDATE mensagens_suporte SET status = $1 WHERE id = $2',
             ['enviada', mensagemId]
@@ -112,10 +107,10 @@ ${mensagem}
           });
         }
         
-        // Enviar o email
+        console.log('Enviando email via SendGrid para:', mailOptions.to);
         const info = await sgMail.send(mailOptions);
+        console.log('Email enviado com sucesso! Resposta:', JSON.stringify(info).substring(0, 100) + '...');
         
-        // Atualizar status da mensagem
         await db.query(
           'UPDATE mensagens_suporte SET status = $1, email_info = $2 WHERE id = $3',
           ['enviada', JSON.stringify(info), mensagemId]
@@ -127,8 +122,11 @@ ${mensagem}
         });
       } catch (error) {
         console.error('Erro ao enviar email:', error);
+        console.error('Detalhes do erro:', JSON.stringify(error, null, 2));
+        if (error.response) {
+          console.error('Resposta de erro do SendGrid:', error.response.body);
+        }
         
-        // Atualizar status da mensagem
         await db.query(
           'UPDATE mensagens_suporte SET status = $1, erro = $2 WHERE id = $3',
           ['erro', error.message || JSON.stringify(error), mensagemId]
