@@ -4,6 +4,7 @@ const usuariosRoutes = require("./routes/usuarios");
 const livrosRoutes = require("./routes/livrosRoutes");
 const solicitacoesRoutes = require('./routes/solicitacoes');
 const segurancaRoutes = require('./routes/segurancaRoutes');
+const suporteRoutes = require('./routes/suporte');
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use("/usuarios", usuariosRoutes);
 app.use("/livros", livrosRoutes);
 app.use('/solicitacoes', solicitacoesRoutes);
 app.use('/seguranca', segurancaRoutes);
+app.use('/suporte', suporteRoutes);
 
 module.exports = app;
