@@ -5,12 +5,15 @@ const livrosRoutes = require("./routes/livrosRoutes");
 const solicitacoesRoutes = require('./routes/solicitacoes');
 const segurancaRoutes = require('./routes/segurancaRoutes');
 const suporteRoutes = require('./routes/suporte');
+const resetSenhaRoutes = require('./routes/resetSenhaRoutes');
 
 const app = express();
 
 const allowedOrigins = [
   'http://localhost:8081', // desenvolvimento web local
   'https://ourbook-j73l.onrender.com', // backend render
+  'https://reset-senha-ourbook.onrender.com', // site de reset de senha
+  'http://localhost:3000', // desenvolvimento local do site de reset
 ];
 
 app.use(cors({
@@ -30,5 +33,6 @@ app.use("/livros", livrosRoutes);
 app.use('/solicitacoes', solicitacoesRoutes);
 app.use('/seguranca', segurancaRoutes);
 app.use('/suporte', suporteRoutes);
+app.use('/reset-senha', resetSenhaRoutes);
 
 module.exports = app;
