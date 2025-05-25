@@ -3,7 +3,6 @@ const router = express.Router();
 const livrosModel = require('../models/livrosModel');
 const auth = require('../middleware/auth');
 
-// Rota para obter todos os livros
 router.get('/', async (req, res) => {
   try {
     const livros = await livrosModel.getAllLivros();
@@ -14,7 +13,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Rota para obter livros por gênero
+router.get('/disponiveis', async (req, res) => {
+  try {
+    console.log('Buscando livros disponíveis para troca...');
+    const livros = await livrosModel.getAllLivros();
+    // Filtra apenas os livros com status 'disponivel' ou disponivel = true
+    const livrosDisponiveis = livros.filter(livro => 
+      livro.status === 'disponivel' || livro.disponivel === true
+    );
+    console.log(`Encontrados ${livrosDisponiveis.length} livros disponíveis de um total de ${livros.length}`);
+    res.json(livrosDisponiveis);
+  } catch (error) {
+    console.error('Erro ao buscar livros disponíveis:', error);
+    res.status(500).json({ message: 'Erro ao buscar livros disponíveis' });
+  }
+});
+
 router.get('/genero/:genero', async (req, res) => {
   try {
     const livros = await livrosModel.getLivrosByGenero(req.params.genero);
@@ -25,7 +39,6 @@ router.get('/genero/:genero', async (req, res) => {
   }
 });
 
-// Rota para obter livros por usuário
 router.get('/usuario/:id', async (req, res) => {
   try {
     const livros = await livrosModel.getLivrosByUsuario(req.params.id);
@@ -36,7 +49,6 @@ router.get('/usuario/:id', async (req, res) => {
   }
 });
 
-// Rota para pesquisar livros
 router.get('/search', async (req, res) => {
   const { q, estado, cidade } = req.query;
   try {
@@ -47,7 +59,6 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// Rota para obter livros por preferências do usuário
 router.post('/preferencias', auth, async (req, res) => {
   const { generos } = req.body;
   if (!generos || !Array.isArray(generos) || generos.length === 0) {
@@ -63,7 +74,6 @@ router.post('/preferencias', auth, async (req, res) => {
   }
 });
 
-// Rota para adicionar um novo livro (protegida por autenticação)
 router.post('/', auth, async (req, res) => {
   console.log('Recebendo requisição para adicionar livro');
   console.log('Headers:', req.headers);
@@ -72,7 +82,6 @@ router.post('/', auth, async (req, res) => {
   
   const { titulo, autor, estado_livro, genero, fotos, status } = req.body;
   
-  // Validação básica
   if (!titulo || !autor || !estado_livro || !genero) {
     console.log('Campos obrigatórios faltando:', { titulo, autor, estado_livro, genero });
     return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos' });
@@ -101,13 +110,11 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Rota para atualizar um livro (protegida por autenticação)
 router.put('/:id', auth, async (req, res) => {
   const livroId = req.params.id;
   const { titulo, autor, estado_livro, genero, fotos, disponivel, status } = req.body;
   
   try {
-    // Verificar se o livro pertence ao usuário
     const livrosDoUsuario = await livrosModel.getLivrosByUsuario(req.usuario.id);
     const livroExistente = livrosDoUsuario.find(livro => livro.id == livroId);
     
@@ -133,12 +140,10 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Rota para excluir um livro (protegida por autenticação)
 router.delete('/:id', auth, async (req, res) => {
   const livroId = req.params.id;
   
   try {
-    // Verificar se o livro pertence ao usuário
     const livrosDoUsuario = await livrosModel.getLivrosByUsuario(req.usuario.id);
     const livroExistente = livrosDoUsuario.find(livro => livro.id == livroId);
     
@@ -154,7 +159,6 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Rota para obter livro por ID
 router.get('/:id', async (req, res) => {
   try {
     const livro = await livrosModel.getLivroById(req.params.id);
