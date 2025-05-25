@@ -129,6 +129,40 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// Buscar usuário por telefone
+router.get('/telefone/:telefone', async (req, res) => {
+  const { telefone } = req.params;
+  console.log('[ROTA] Buscando usuário por telefone:', telefone);
+  
+  if (!telefone) {
+    return res.status(400).json({ erro: 'Telefone é obrigatório' });
+  }
+  
+  try {
+    // Limpa o telefone para buscar apenas os números
+    const numeroLimpo = telefone.replace(/\D/g, '');
+    console.log('[ROTA] Telefone limpo para busca:', numeroLimpo);
+    
+    // Busca com diferentes formatos possíveis
+    const result = await pool.query(
+      `SELECT id, nome, usuario, email, telefone FROM usuarios 
+       WHERE telefone = $1 OR telefone = $2 OR telefone = $3 OR telefone LIKE $4`,
+      [numeroLimpo, `+55${numeroLimpo}`, `+${numeroLimpo}`, `%${numeroLimpo}%`]
+    );
+    
+    if (result.rows.length > 0) {
+      console.log('[ROTA] Usuário encontrado:', result.rows[0].id);
+      res.json({ usuario: result.rows[0] });
+    } else {
+      console.log('[ROTA] Usuário não encontrado para o telefone:', telefone);
+      res.status(404).json({ erro: 'Usuário não encontrado' });
+    }
+  } catch (err) {
+    console.error('[ROTA] Erro ao buscar usuário por telefone:', err);
+    res.status(500).json({ erro: 'Erro ao buscar usuário', detalhes: err.message });
+  }
+});
+
 // 4. Buscar usuário por ID
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
@@ -334,21 +368,57 @@ router.delete('/:usuario_id/dispositivos/:dispositivo_id', async (req, res) => {
 // Enviar código para alteração de senha
 router.post('/enviar-codigo-alterar-senha', async (req, res) => {
   const { usuario_id, telefone } = req.body;
-  if (!usuario_id || !telefone) return res.status(400).json({ erro: 'Dados obrigatórios' });
+  console.log('[RESET SENHA] Requisição para enviar código:', { usuario_id, telefone });
+  
+  if (!usuario_id || !telefone) {
+    console.log('[RESET SENHA] Dados obrigatórios faltando');
+    return res.status(400).json({ erro: 'Dados obrigatórios' });
+  }
+
+  // Verificar se o usuário existe
+  try {
+    const userCheck = await pool.query('SELECT * FROM usuarios WHERE id = $1', [usuario_id]);
+    if (userCheck.rows.length === 0) {
+      console.log('[RESET SENHA] Usuário não encontrado:', usuario_id);
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+    }
+  } catch (err) {
+    console.error('[RESET SENHA] Erro ao verificar usuário:', err);
+    return res.status(500).json({ erro: 'Erro ao verificar usuário', detalhes: err.message });
+  }
 
   const codigo = Math.floor(100000 + Math.random() * 900000).toString();
   const expiracao = new Date(Date.now() + 5 * 60000); // 5 minutos
+  console.log('[RESET SENHA] Código gerado:', codigo, 'Expira em:', expiracao);
+
+  // Limpar telefone para garantir formato correto
+  const numeroLimpo = telefone.replace(/\D/g, '');
+  const telefoneFormatado = formatarTelefoneParaInternacional(numeroLimpo);
+  console.log('[RESET SENHA] Telefone formatado:', telefoneFormatado);
 
   try {
+    // Primeiro, invalidar códigos anteriores para este usuário
+    await pool.query(
+      `UPDATE codigos_verificacao SET usado = TRUE 
+       WHERE usuario_id = $1 AND tipo = 'senha' AND usado = FALSE`,
+      [usuario_id]
+    );
+    
+    // Inserir novo código
     await pool.query(
       `INSERT INTO codigos_verificacao (usuario_id, codigo, telefone, expiracao, tipo, usado)
        VALUES ($1, $2, $3, $4, $5, FALSE)`,
-      [usuario_id, codigo, telefone, expiracao, 'senha']
+      [usuario_id, codigo, telefoneFormatado, expiracao, 'senha']
     );
-    // Envie o SMS com Twilio aqui
-    await enviarSMS(telefone, `Seu código para alterar a senha: ${codigo}`);
+    console.log('[RESET SENHA] Código salvo no banco');
+    
+    // Enviar SMS
+    await enviarSMS(telefoneFormatado, `Seu código OurBook para alterar a senha: ${codigo}`);
+    console.log('[RESET SENHA] SMS enviado com sucesso');
+    
     res.json({ ok: true, mensagem: 'Código enviado' });
   } catch (e) {
+    console.error('[RESET SENHA] Erro ao processar solicitação:', e);
     res.status(500).json({ erro: 'Erro ao enviar código', detalhes: e.message });
   }
 });
@@ -356,36 +426,109 @@ router.post('/enviar-codigo-alterar-senha', async (req, res) => {
 // Verificar código para alteração de senha
 router.post('/verificar-codigo-alterar-senha', async (req, res) => {
   const { usuario_id, codigo } = req.body;
-  if (!usuario_id || !codigo) return res.status(400).json({ erro: 'Dados obrigatórios' });
-
-  const result = await pool.query(
-    `SELECT * FROM codigos_verificacao
-     WHERE usuario_id = $1 AND codigo = $2 AND tipo = $3 AND expiracao > NOW() AND usado = FALSE`,
-    [usuario_id, codigo, 'senha']
-  );
-
-  if (result.rows.length === 0) {
-    return res.json({ success: false });
+  console.log('[RESET SENHA] Verificando código:', { usuario_id, codigo });
+  
+  if (!usuario_id || !codigo) {
+    console.log('[RESET SENHA] Dados obrigatórios faltando');
+    return res.status(400).json({ erro: 'Dados obrigatórios' });
   }
 
-  await pool.query(
-    `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
-    [result.rows[0].id]
-  );
+  try {
+    // Verificar se o código existe, é válido e não expirou
+    const result = await pool.query(
+      `SELECT * FROM codigos_verificacao
+       WHERE usuario_id = $1 AND codigo = $2 AND tipo = $3 AND expiracao > NOW() AND usado = FALSE`,
+      [usuario_id, codigo, 'senha']
+    );
+    console.log('[RESET SENHA] Resultado da verificação:', result.rows.length > 0 ? 'Código válido' : 'Código inválido');
 
-  res.json({ success: true });
+    if (result.rows.length === 0) {
+      // Verificar se o código existe mas expirou
+      const expiredCheck = await pool.query(
+        `SELECT * FROM codigos_verificacao
+         WHERE usuario_id = $1 AND codigo = $2 AND tipo = $3 AND expiracao <= NOW()`,
+        [usuario_id, codigo, 'senha']
+      );
+      
+      if (expiredCheck.rows.length > 0) {
+        console.log('[RESET SENHA] Código expirado');
+        return res.json({ success: false, message: 'Código expirado' });
+      }
+      
+      // Verificar se o código já foi usado
+      const usedCheck = await pool.query(
+        `SELECT * FROM codigos_verificacao
+         WHERE usuario_id = $1 AND codigo = $2 AND tipo = $3 AND usado = TRUE`,
+        [usuario_id, codigo, 'senha']
+      );
+      
+      if (usedCheck.rows.length > 0) {
+        console.log('[RESET SENHA] Código já utilizado');
+        return res.json({ success: false, message: 'Código já utilizado' });
+      }
+      
+      console.log('[RESET SENHA] Código inválido');
+      return res.json({ success: false, message: 'Código inválido' });
+    }
+
+    // Marcar código como usado
+    await pool.query(
+      `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
+      [result.rows[0].id]
+    );
+    console.log('[RESET SENHA] Código marcado como usado');
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[RESET SENHA] Erro ao verificar código:', err);
+    res.status(500).json({ success: false, erro: 'Erro ao verificar código', detalhes: err.message });
+  }
 });
 
 // Alterar senha
 router.put('/:id/alterar-senha', async (req, res) => {
   const { id } = req.params;
   const { senha } = req.body;
-  if (!senha) return res.status(400).json({ erro: 'Senha obrigatória' });
+  console.log('[RESET SENHA] Alterando senha para usuário:', id);
+  
+  if (!senha) {
+    console.log('[RESET SENHA] Senha não fornecida');
+    return res.status(400).json({ erro: 'Senha obrigatória' });
+  }
+
+  // Validar a senha (pelo menos 6 caracteres, uma maiúscula, um número e um caractere especial)
+  const senhaRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]).{6,}$/;
+  if (!senhaRegex.test(senha)) {
+    console.log('[RESET SENHA] Senha não atende aos requisitos');
+    return res.status(400).json({ 
+      erro: 'Senha não atende aos requisitos', 
+      detalhes: 'A senha deve conter pelo menos 6 caracteres, uma letra maiúscula, um número e um caractere especial.' 
+    });
+  }
 
   try {
+    // Verificar se o usuário existe
+    const userCheck = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+      console.log('[RESET SENHA] Usuário não encontrado:', id);
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+    }
+
+    // Atualizar a senha
     await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [senha, id]);
+    console.log('[RESET SENHA] Senha alterada com sucesso para usuário:', id);
+    
+    // Invalidar todos os códigos de verificação pendentes para este usuário
+    await pool.query(
+      `UPDATE codigos_verificacao SET usado = TRUE 
+       WHERE usuario_id = $1 AND tipo = 'senha' AND usado = FALSE`,
+      [id]
+    );
+    console.log('[RESET SENHA] Códigos de verificação pendentes invalidados');
+    
     res.json({ ok: true, mensagem: 'Senha alterada com sucesso' });
   } catch (e) {
+    console.error('[RESET SENHA] Erro ao alterar senha:', e);
     res.status(500).json({ erro: 'Erro ao alterar senha', detalhes: e.message });
   }
 });
