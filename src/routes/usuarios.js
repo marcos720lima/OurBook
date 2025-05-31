@@ -16,9 +16,23 @@ router.use((req, res, next) => {
 router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
   console.log('[2FA][DEBUG] Desativar 2FA:', { params: req.params, body: req.body });
   const { id } = req.params;
+  const { codigo } = req.body;
   try {
-    const result = await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1 RETURNING *`, [id]);
-    console.log('[2FA][DEBUG] Resultado do update:', result.rows);
+    // Verifica o código
+    const result = await pool.query(
+      `SELECT * FROM codigos_verificacao WHERE usuario_id = $1 AND codigo = $2 AND expiracao > NOW() AND usado = FALSE`,
+      [id, codigo]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ erro: 'Código inválido ou expirado' });
+    }
+    // Marca o código como usado
+    await pool.query(
+      `UPDATE codigos_verificacao SET usado = TRUE WHERE id = $1`,
+      [result.rows[0].id]
+    );
+    // Desativa o 2FA
+    await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch (err) {
     console.error('[2FA][DEBUG] Erro ao desativar 2FA:', err);
