@@ -12,8 +12,8 @@ router.use((req, res, next) => {
   next();
 });
 
-// Desativar 2FA (mover para o início para evitar conflito de rotas)
-router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
+// Desativar 2FA (corrigido para não duplicar o prefixo)
+router.post('/:id/2fa/desativar', async (req, res) => {
   console.log('[2FA][DEBUG] Desativar 2FA:', { params: req.params, body: req.body });
   const { id } = req.params;
   const { codigo } = req.body;
