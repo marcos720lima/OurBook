@@ -563,7 +563,7 @@ router.get('/:id/historico-acessos', async (req, res) => {
        FROM historico_acessos
        WHERE usuario_id = $1
        ORDER BY data_hora DESC
-       LIMIT 20`,
+       LIMIT 5`,
       [id]
     );
     res.json(result.rows);
