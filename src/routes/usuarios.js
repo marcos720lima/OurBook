@@ -330,6 +330,7 @@ router.post('/:id/2fa/ativar', async (req, res) => {
 
 // Desativar 2FA
 router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
+  console.log('[2FA][DEBUG] Desativar 2FA:', { params: req.params, body: req.body });
   const { id } = req.params;
   await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1`, [id]);
   res.json({ ok: true });
