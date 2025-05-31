@@ -16,9 +16,14 @@ router.use((req, res, next) => {
 router.post('/usuarios/:id/2fa/desativar', async (req, res) => {
   console.log('[2FA][DEBUG] Desativar 2FA:', { params: req.params, body: req.body });
   const { id } = req.params;
-  const result = await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1 RETURNING *`, [id]);
-  console.log('[2FA][DEBUG] Resultado do update:', result.rows);
-  res.json({ ok: true });
+  try {
+    const result = await pool.query(`UPDATE usuarios SET two_factor_enabled = FALSE WHERE id = $1 RETURNING *`, [id]);
+    console.log('[2FA][DEBUG] Resultado do update:', result.rows);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[2FA][DEBUG] Erro ao desativar 2FA:', err);
+    res.status(500).json({ erro: 'Erro ao desativar 2FA', detalhes: err.message });
+  }
 });
 
 // 1. Registro de usuário
