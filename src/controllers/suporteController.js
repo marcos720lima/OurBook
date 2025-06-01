@@ -1,6 +1,5 @@
 const sgMail = require('@sendgrid/mail');
 const db = require('../config/db');
-const { enviarEmail } = require('../utils/email');
 
 if (process.env.SENDGRID_API_KEY) {
   console.log('Configurando SendGrid com API key:', process.env.SENDGRID_API_KEY.substring(0, 10) + '...');
@@ -193,23 +192,6 @@ ${mensagem}
         erro: 'Erro ao obter mensagem', 
         detalhes: error.message 
       });
-    }
-  },
-
-  // Endpoint para enviar e-mail de suporte (simples)
-  async enviarEmailSuporte(req, res) {
-    const { email, assunto, mensagem } = req.body;
-
-    try {
-      await enviarEmail({
-        to: 'ourbook.noreply@gmail.com',
-        subject: `Suporte OurBook: ${assunto}`,
-        text: `Email: ${email}\n\nMensagem: ${mensagem}`
-      });
-      res.json({ message: 'E-mail de suporte enviado com sucesso' });
-    } catch (error) {
-      console.error('Erro ao enviar e-mail de suporte:', error);
-      res.status(500).json({ error: 'Erro ao enviar e-mail de suporte' });
     }
   }
 };
